@@ -1,11 +1,12 @@
 # Web Crawler
-This project is created to crawl and parse websites.
+This project was created to crawl and parse websites.
 
 <p>
     <img src="assets/spider-crawling.gif" alt="Read" width="473">
 <p>
+
 # Development
-For development we require Python 3.10.10 to be installed.
+For development we require Python `3.10.10` to be installed.
 
 ```
 # Install Python 3.10.10
