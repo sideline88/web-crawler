@@ -28,7 +28,8 @@ Congratulations! 🎉 You should now be working in the local environment. To lea
 
 ```deactivate```
 
-If the virtual environment has been created and dependencies installed the environment needs to be activated before development can begin
+If the virtual environment has been created and dependencies already installed, the environment only needs to be activated before development can begin.
+
 ```
 # Activate the virtual environment
 _venv\Scripts\activate.bat
