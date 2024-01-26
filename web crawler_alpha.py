@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 import requests
 
 class RobotsParser(object):
@@ -14,20 +15,31 @@ class RobotsParser(object):
             self.robotsdata = None
 
     def _parse_robots(self, robotsdata):
-        self.entries = list()
-        for line in robotsdata.splitlines():
-            if len(line.strip()) != 0:
-                   if line.startswith('#'):
-                       content = line.lstrip('#').strip()
-                       self.entries.append({"type": "commentary", "content": content, "raw": line})
-                   elif line.lower().startswith('allow'):
-                       content = line.split(':', 1)[1].strip()
-                       self.entries.append({"type": "allow", "content": content, "raw": line})
-                   elif line.lower().startswith('disallow'):
-                       content = line.split(':', 1)[1].strip()
-                       self.entries.append({"type": "disallow", "content": content, "raw": line})
+        if robotsdata == None:
+            self.entries = None
+        else:
+            self.entries = list()
+            for line in robotsdata.splitlines():
+                if len(line.strip()) != 0:
+                    if line.startswith('#'):
+                        content = line.lstrip('#').strip()
+                        self.entries.append({"type": "commentary", "content": content, "raw": line})
+                    elif line.lower().startswith('allow'):
+                        content = line.split(':', 1)[1].strip()
+                        self.entries.append({"type": "allow", "content": content, "raw": line})
+                    elif line.lower().startswith('disallow'):
+                        content = line.split(':', 1)[1].strip()
+                        self.entries.append({"type": "disallow", "content": content, "raw": line})
 
-data = RobotsParser('https://www.twitter.com')
+class FindLinks(object):
+    def __init__(self, url):
+        self.url = url
+        self._retrieve_html(self.url)
+    
+    def _retrieve_html(self, url):
+        response = requests.get(url)
+        if response.status_code == 200:
+            soup = response.text
+            self.data = BeautifulSoup(soup, 'html.parser')
 
-for i in data.entries:
-    print(i)
+test_url = 'https://quotes.toscrape.com'
