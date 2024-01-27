@@ -1,12 +1,13 @@
 from bs4 import BeautifulSoup
 import requests
 
-class RobotsParser(object):
+class ParseRobots(object):
     def __init__(self, url):
         self.url = url
         self._retrieve_robots(self.url)
         self._parse_robots(self.robotsdata)
 
+# retrieves text from robots.txt file
     def _retrieve_robots(self, url):
         response = requests.get(url + '/robots.txt')
         if response.status_code == 200:
@@ -14,32 +15,63 @@ class RobotsParser(object):
         else:
             self.robotsdata = None
 
+# parses the robots.txt list into allowed and disallowed links
     def _parse_robots(self, robotsdata):
         if robotsdata == None:
             self.entries = None
         else:
-            self.entries = list()
+            self.allowed_links, self.disallowed_links = list(), list()
+            pay_attention = False
             for line in robotsdata.splitlines():
-                if len(line.strip()) != 0:
-                    if line.startswith('#'):
-                        content = line.lstrip('#').strip()
-                        self.entries.append({"type": "commentary", "content": content, "raw": line})
-                    elif line.lower().startswith('allow'):
-                        content = line.split(':', 1)[1].strip()
-                        self.entries.append({"type": "allow", "content": content, "raw": line})
+                if line.lower().startswith('user-agent: *'):
+                    pay_attention = True
+                    continue
+                if pay_attention:
+                    link = line.split(':', 1)[1].strip()
+                    if line.lower().startswith('allow'):
+                        self.allowed_links.append(link)
                     elif line.lower().startswith('disallow'):
-                        content = line.split(':', 1)[1].strip()
-                        self.entries.append({"type": "disallow", "content": content, "raw": line})
+                        self.disallowed_links.append(link)
 
-class FindLinks(object):
+class ParseHTML(object):
     def __init__(self, url):
         self.url = url
         self._retrieve_html(self.url)
-    
+        self._isolate_links(self.html_data)
+
+# retrieves html data and parses it using BeautifulSoup
     def _retrieve_html(self, url):
         response = requests.get(url)
         if response.status_code == 200:
             soup = response.text
-            self.data = BeautifulSoup(soup, 'html.parser')
+            self.html_data = BeautifulSoup(soup, 'html.parser')
 
-test_url = 'https://quotes.toscrape.com'
+# isolates external and internal links from the html data
+    def _isolate_links(self, html_data):
+        raw_links = html_data.find_all('a')
+        raw_links = set(link.get('href') for link in raw_links)
+        self.external_links, self.internal_links = list(), list()
+        for i in raw_links:
+            if i.startswith('https://'):
+                self.external_links.append(i)
+            else:
+                self.internal_links.append(i)
+
+'''
+Iterate links to a certain depth (or entire website)
+Prune links already visited
+Ignore external links
+Logger
+Final report
+'''
+
+test_url = 'https://www.reddit.com'
+
+data = ParseRobots(test_url)
+
+print('ALLOWED LINKS:')
+for i in data.allowed_links:
+    print(i)
+print('\nDISALLOWED LINKS:')
+for i in data.disallowed_links:
+    print(i)
