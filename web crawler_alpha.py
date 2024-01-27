@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 import requests
 
 class ParseRobots(object):
@@ -40,7 +41,10 @@ class ParseHTML(object):
     def __init__(self, url):
         self.url = url
         self._retrieve_html(self.url)
-        self._isolate_links(self.html_data)
+        try:
+            self._isolate_links(self.html_data)
+        except:
+            pass
 
 # retrieves html data and parses it using BeautifulSoup
     def _retrieve_html(self, url):
@@ -60,21 +64,33 @@ class ParseHTML(object):
             else:
                 self.external_links.add(i)
 
-def map_website(url):
-    homepage = ParseHTML(url)
-    links_found = homepage.internal_links
-    links_new = set()
-    links_searched = set(url)
-    for i in links_found:
-        j = i if i.startswith(url) else url + i
-        subpage = ParseHTML(j)
-        links_searched.add(j)
-        links_new.update(subpage.internal_links)
-        print(j)
-    links_found.update(links_new)
-    for i in links_found:
-        print(i)
+class MapSite(object):
+    def __init__(self, url):
+        self.url = url
+        self.found_links = set()
+        self._recursive_crawl(url)
+    
+    def _recursive_crawl(self, current_url = None):
+        if current_url == None:
+            current_url = self.url
+        if current_url not in self.found_links:
+            print(current_url)
+            self.found_links.add(current_url)
+            page = ParseHTML(current_url)
+            new_links = page.internal_links
+            for link in new_links:
+                if link.startswith(current_url):
+                    next_url = link
+                else:
+                    next_url = urljoin(current_url, link)
+                self._recursive_crawl(next_url)
+
+'''
+integrate robots.txt
+'''
 
 test_url = 'https://quotes.toscrape.com'
 
-map_website(test_url)
+data = MapSite(test_url)
+
+input('Press any key to continue')
