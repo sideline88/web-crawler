@@ -10,11 +10,9 @@ class ParseRobots(object):
 
 # retrieves text from robots.txt file
     def _retrieve_robots(self, url):
-        response = requests.get(url + '/robots.txt')
-        if response.status_code == 200:
-            self.robotsdata = response.text
-        else:
-            self.robotsdata = None
+        robots_url = urljoin(url, '/robots.txt')
+        reply = requests.get(robots_url)
+        self.robotsdata = reply.text if reply.status_code == 200 else None
 
 # parses the robots.txt list into allowed and disallowed links
     def _parse_robots(self, robotsdata):
