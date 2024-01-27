@@ -18,7 +18,8 @@ class ParseRobots(object):
 # parses the robots.txt list into allowed and disallowed links
     def _parse_robots(self, robotsdata):
         if robotsdata == None:
-            self.entries = None
+            self.allowed_links = None
+            self.disallowed_links = None
         else:
             self.allowed_links, self.disallowed_links = list(), list()
             pay_attention = False
@@ -26,6 +27,8 @@ class ParseRobots(object):
                 if line.lower().startswith('user-agent: *'):
                     pay_attention = True
                     continue
+                if len(line) == 0:
+                    pay_attention = False
                 if pay_attention:
                     link = line.split(':', 1)[1].strip()
                     if line.lower().startswith('allow'):
@@ -50,28 +53,28 @@ class ParseHTML(object):
     def _isolate_links(self, html_data):
         raw_links = html_data.find_all('a')
         raw_links = set(link.get('href') for link in raw_links)
-        self.external_links, self.internal_links = list(), list()
+        self.external_links, self.internal_links = set(), set()
         for i in raw_links:
-            if i.startswith('https://'):
-                self.external_links.append(i)
+            if i.startswith(self.url) or i.startswith('/'):
+                self.internal_links.add(i)
             else:
-                self.internal_links.append(i)
+                self.external_links.add(i)
 
-'''
-Iterate links to a certain depth (or entire website)
-Prune links already visited
-Ignore external links
-Logger
-Final report
-'''
+def map_website(url):
+    homepage = ParseHTML(url)
+    links_found = homepage.internal_links
+    links_new = set()
+    links_searched = set(url)
+    for i in links_found:
+        j = i if i.startswith(url) else url + i
+        subpage = ParseHTML(j)
+        links_searched.add(j)
+        links_new.update(subpage.internal_links)
+        print(j)
+    links_found.update(links_new)
+    for i in links_found:
+        print(i)
 
-test_url = 'https://www.reddit.com'
+test_url = 'https://quotes.toscrape.com'
 
-data = ParseRobots(test_url)
-
-print('ALLOWED LINKS:')
-for i in data.allowed_links:
-    print(i)
-print('\nDISALLOWED LINKS:')
-for i in data.disallowed_links:
-    print(i)
+map_website(test_url)
