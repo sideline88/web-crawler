@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
-from datetime import datetime
 from urllib.parse import urljoin
+from urllib.parse import urlsplit
 import requests
 
 class ParseRobots(object):
@@ -45,17 +45,19 @@ class ParseHTML(object):
             pass
 
     def _retrieve_html(self, url):
-        response = requests.get(url)
-        if response.status_code == 200:
-            soup = response.text
+        reply = requests.get(url)
+        if reply.status_code == 200:
+            soup = reply.text
             self.html_data = BeautifulSoup(soup, 'html.parser')
 
     def _isolate_links(self, html_data):
-        raw_links = html_data.find_all('a')
-        raw_links = set(link.get('href') for link in raw_links)
+        url_parts = urlsplit(self.url)
+        base_url = url_parts.scheme + '://' + url_parts.netloc
+        raw_links = html_data.find_all('a', href = True)
+        raw_links = set(link.get('href') for link in raw_links if link.get('href'))
         self.external_links, self.internal_links = set(), set()
         for i in raw_links:
-            if i.startswith(self.url) or i.startswith('/'):
+            if i.startswith(base_url) or i.startswith('/'):
                 self.internal_links.add(i)
             else:
                 self.external_links.add(i)
@@ -85,7 +87,7 @@ class MapSite(object):
 integrate robots.txt
 '''
 
-test_url = str(input('Website to Analyse:'))
+test_url = str(input('Website to Analyse: '))
 
 data = MapSite(test_url)
 
