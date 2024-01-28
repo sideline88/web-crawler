@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup
+from datetime import datetime
 from urllib.parse import urljoin
 import requests
 
@@ -8,31 +9,30 @@ class ParseRobots(object):
         self._retrieve_robots(self.url)
         self._parse_robots(self.robotsdata)
 
-# retrieves text from robots.txt file
     def _retrieve_robots(self, url):
         robots_url = urljoin(url, '/robots.txt')
         reply = requests.get(robots_url)
         self.robotsdata = reply.text if reply.status_code == 200 else None
 
-# parses the robots.txt list into allowed and disallowed links
     def _parse_robots(self, robotsdata):
         if robotsdata == None:
             self.allowed_links = None
             self.disallowed_links = None
         else:
             self.allowed_links, self.disallowed_links = list(), list()
-            pay_attention = False
-            for line in robotsdata.splitlines():
-                if line.lower().startswith('user-agent: *'):
-                    pay_attention = True
+            attention = False
+            for entry in robotsdata.splitlines():
+                if entry.lower().startswith('user-agent: *'):
+                    attention = True
                     continue
-                if len(line) == 0:
-                    pay_attention = False
-                if pay_attention:
-                    link = line.split(':', 1)[1].strip()
-                    if line.lower().startswith('allow'):
+                if len(entry) == 0:
+                    attention = False
+                    continue
+                if attention:
+                    link = entry.split(':', 1)[1].strip()
+                    if entry.lower().startswith('allow'):
                         self.allowed_links.append(link)
-                    elif line.lower().startswith('disallow'):
+                    elif entry.lower().startswith('disallow'):
                         self.disallowed_links.append(link)
 
 class ParseHTML(object):
@@ -44,14 +44,12 @@ class ParseHTML(object):
         except:
             pass
 
-# retrieves html data and parses it using BeautifulSoup
     def _retrieve_html(self, url):
         response = requests.get(url)
         if response.status_code == 200:
             soup = response.text
             self.html_data = BeautifulSoup(soup, 'html.parser')
 
-# isolates external and internal links from the html data
     def _isolate_links(self, html_data):
         raw_links = html_data.find_all('a')
         raw_links = set(link.get('href') for link in raw_links)
