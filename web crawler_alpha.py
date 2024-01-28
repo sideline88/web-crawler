@@ -85,7 +85,7 @@ class MapSite(object):
 integrate robots.txt
 '''
 
-test_url = 'https://quotes.toscrape.com'
+test_url = str(input('Website to Analyse:'))
 
 data = MapSite(test_url)
 
