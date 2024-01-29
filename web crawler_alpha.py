@@ -15,6 +15,7 @@ class ParseRobots(object):
         self.robotsdata = reply.text if reply.status_code == 200 else None
 
 # returns a set of allowed and disallowed links for user_agent *
+# parse this properly for examples such as the socialist alliance website
     def _parse_robots(self, robotsdata):
         if robotsdata == None:
             self.allowed_links = None
@@ -23,10 +24,12 @@ class ParseRobots(object):
             self.allowed_links, self.disallowed_links = list(), list()
             attention = False
             for entry in robotsdata.splitlines():
+                if entry.startswith('#'):
+                    continue
                 if entry.lower().startswith('user-agent: *'):
                     attention = True
                     continue
-                if len(entry) == 0:
+                if len(entry) == 0 or entry.lower().startswith('user-agent:'):
                     attention = False
                     continue
                 if attention:
@@ -63,8 +66,9 @@ class ParseHTML(object):
         self.external_links, self.internal_links = set(), set()
         parse_base = urlparse(self.base_url)
         for link in raw_links:
-            parse_link = urlparse(link)
-            if parse_base.netloc == parse_link.netloc:
+            full_link = urljoin(self.base_url, link)
+            parse_full_link = urlparse(full_link)
+            if parse_base.netloc == parse_full_link.netloc:
                 self.internal_links.add(link)
             else:
                 self.external_links.add(link)
@@ -77,10 +81,16 @@ class MapSite(object):
         self._recursive_crawl()
         self._dumpdata()
 
-#defines base url of the website
+# defines base url of the website
     def _base_url(self):
         url_parts = urlsplit(self.url)
         self.base_url = url_parts.scheme + '://' + url_parts.netloc
+
+# gathers the robots.txt data
+    def _define_limiter(self):
+        data = ParseRobots(self.base_url)
+        self.robot_allowed = data.allowed_links
+        self.robot_disallowed = data.disallowed_links
 
 # crawls through all the internal links of a website
     def _recursive_crawl(self, current_url = None):
@@ -117,8 +127,12 @@ class MapSite(object):
 
 '''
 integrate robots.txt
+Parse all data from robots.txt
 yield links as they are found rather than dumping at the end
 parse other data apart from links (images, emails)
+get sitemap from robots.txt
+IP rotation
+traps and tarpits
 '''
 
 test_url = str(input('Website to Analyse: '))
