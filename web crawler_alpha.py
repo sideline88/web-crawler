@@ -1,6 +1,5 @@
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlparse, urlsplit
 import requests
 
 class ParseRobots(object):
@@ -40,38 +39,41 @@ class ParseRobots(object):
 class ParseHTML(object):
     def __init__(self, url, base_url):
         self.url = url
-        self._retrieve_html(self.url)
+        self.base_url = base_url
         try:
-            self._isolate_links(self.html_data, base_url)
-        except:
-            pass
+            self._retrieve_html()
+            self._isolate_links()
+        except requests.exceptions.RequestException as e:
+            print(f'Error retrieving HTML from {self.url}: {e}')
 
 # retrieves html data from a url
-    def _retrieve_html(self, url):
-        reply = requests.get(url)
-        if reply.status_code == 200:
-            soup = reply.text
-            self.html_data = BeautifulSoup(soup, 'html.parser')
+    def _retrieve_html(self):
+        try:
+            reply = requests.get(self.url)
+            reply.raise_for_status()
+            soup = BeautifulSoup(reply.text, 'html.parser')
+            self.html_data = soup
+        except requests.exceptions.RequestException as e:
+            raise Exception(f'Failed to retrieve HTML from {self.url}. {e}')
 
 # returns a set of internal and external links from the specified url
-# redo internal and external links - what if internal link does NOT start with //?
-# will ocassionally spill over into another website - error in base_url?
-    def _isolate_links(self, html_data, base_url):
-        raw_links = html_data.find_all('a', href = True)
+    def _isolate_links(self):
+        raw_links = self.html_data.find_all('a', href = True)
         raw_links = set(link.get('href') for link in raw_links if link.get('href'))
         self.external_links, self.internal_links = set(), set()
-        for i in raw_links:
-            if i.startswith(base_url) or i.startswith('/') or i.endswith('.html'):
-                self.internal_links.add(i)
+        parse_base = urlparse(self.base_url)
+        for link in raw_links:
+            parse_link = urlparse(link)
+            if parse_base.netloc == parse_link.netloc:
+                self.internal_links.add(link)
             else:
-                self.external_links.add(i)
+                self.external_links.add(link)
 
 class MapSite(object):
     def __init__(self, url):
         self.url = url
         self._base_url()
-        self.found_internal_links = set()
-        self.found_external_links = set()
+        self.found_external_links, self.found_internal_links = set(), set()
         self._recursive_crawl()
         self._dumpdata()
 
@@ -88,14 +90,17 @@ class MapSite(object):
             print(current_url)
             self.found_internal_links.add(current_url)
             page = ParseHTML(current_url, self.base_url)
-            new_links = page.internal_links
-            self.found_external_links.update(page.external_links)
-            for link in new_links:
-                if link.startswith(current_url):
-                    next_url = link
-                else:
-                    next_url = urljoin(current_url, link)
-                self._recursive_crawl(next_url)
+            try:
+                new_links = page.internal_links
+                self.found_external_links.update(page.external_links)
+                for link in new_links:
+                    if link.startswith(current_url):
+                        next_url = link
+                    else:
+                        next_url = urljoin(current_url, link)
+                    self._recursive_crawl(next_url)
+            except:
+                pass 
 
 # outputs data to a .txt file
     def _dumpdata(self):
@@ -103,15 +108,17 @@ class MapSite(object):
             f.write(f'DATA OUTPUT for {self.url}\n\n')
             f.write('INTERNAL LINKS:\n\n')
             sorted_links = sorted(self.found_internal_links)
-            for i in sorted_links:
-                f.write(i + '\n')
+            for link in sorted_links:
+                f.write(link + '\n')
             f.write('\nEXTERNAL LINKS:\n\n')
             sorted_links = sorted(self.found_external_links)
-            for i in sorted_links:
-                f.write(i + '\n')
+            for link in sorted_links:
+                f.write(link + '\n')
 
 '''
 integrate robots.txt
+yield links as they are found rather than dumping at the end
+parse other data apart from links (images, emails)
 '''
 
 test_url = str(input('Website to Analyse: '))
