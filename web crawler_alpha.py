@@ -1,43 +1,7 @@
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse, urlsplit
 import requests
-
-class ParseRobots(object):
-    def __init__(self, url):
-        self.url = url
-        self._retrieve_robots(self.url)
-        self._parse_robots(self.robotsdata)
-
-# retrieves data from /robots.txt
-    def _retrieve_robots(self, url):
-        robots_url = urljoin(url, '/robots.txt')
-        reply = requests.get(robots_url)
-        self.robotsdata = reply.text if reply.status_code == 200 else None
-
-# returns a set of allowed and disallowed links for user_agent *
-# parse this properly for examples such as the socialist alliance website
-    def _parse_robots(self, robotsdata):
-        if robotsdata == None:
-            self.allowed_links = None
-            self.disallowed_links = None
-        else:
-            self.allowed_links, self.disallowed_links = list(), list()
-            attention = False
-            for entry in robotsdata.splitlines():
-                if entry.startswith('#'):
-                    continue
-                if entry.lower().startswith('user-agent: *'):
-                    attention = True
-                    continue
-                if len(entry) == 0 or entry.lower().startswith('user-agent:'):
-                    attention = False
-                    continue
-                if attention:
-                    link = entry.split(':', 1)[1].strip()
-                    if entry.lower().startswith('allow'):
-                        self.allowed_links.append(link)
-                    elif entry.lower().startswith('disallow'):
-                        self.disallowed_links.append(link)
+import urllib.robotparser
 
 class ParseHTML(object):
     def __init__(self, url, base_url):
@@ -46,8 +10,8 @@ class ParseHTML(object):
         try:
             self._retrieve_html()
             self._isolate_links()
-        except requests.exceptions.RequestException as e:
-            print(f'Error retrieving HTML from {self.url}: {e}')
+        except requests.exceptions.RequestException as error:
+            print(f'Error retrieving HTML from {self.url}: {error}')
 
 # retrieves html data from a url
     def _retrieve_html(self):
@@ -74,9 +38,11 @@ class ParseHTML(object):
                 self.external_links.add(link)
 
 class MapSite(object):
-    def __init__(self, url):
+    def __init__(self, url, polite = True):
         self.url = url
+        self.polite = polite
         self._base_url()
+        self._droid()
         self.found_external_links, self.found_internal_links = set(), set()
         self._recursive_crawl()
         self._dumpdata()
@@ -86,31 +52,32 @@ class MapSite(object):
         url_parts = urlsplit(self.url)
         self.base_url = url_parts.scheme + '://' + url_parts.netloc
 
-# gathers the robots.txt data
-    def _define_limiter(self):
-        data = ParseRobots(self.base_url)
-        self.robot_allowed = data.allowed_links
-        self.robot_disallowed = data.disallowed_links
+# defines robots.txt
+    def _droid(self):
+        self.droid = urllib.robotparser.RobotFileParser()
+        self.droid.set_url(urljoin(self.base_url, '/robots.txt'))
+        self.droid.read()
 
 # crawls through all the internal links of a website
     def _recursive_crawl(self, current_url = None):
         if current_url == None:
             current_url = self.url
-        if current_url not in self.found_internal_links:
-            print(current_url)
-            self.found_internal_links.add(current_url)
-            page = ParseHTML(current_url, self.base_url)
-            try:
-                new_links = page.internal_links
-                self.found_external_links.update(page.external_links)
-                for link in new_links:
-                    if link.startswith(current_url):
-                        next_url = link
-                    else:
-                        next_url = urljoin(current_url, link)
-                    self._recursive_crawl(next_url)
-            except:
-                pass 
+        if self.droid.can_fetch('*', current_url) or self.polite == False:
+            if current_url not in self.found_internal_links:
+                print(current_url)
+                self.found_internal_links.add(current_url)
+                page = ParseHTML(current_url, self.base_url)
+                try:
+                    new_links = page.internal_links
+                    self.found_external_links.update(page.external_links)
+                    for link in new_links:
+                        if link.startswith(current_url):
+                            next_url = link
+                        else:
+                            next_url = urljoin(current_url, link)
+                        self._recursive_crawl(next_url)
+                except:
+                    pass 
 
 # outputs data to a .txt file
     def _dumpdata(self):
@@ -126,13 +93,25 @@ class MapSite(object):
                 f.write(link + '\n')
 
 '''
-integrate robots.txt
-Parse all data from robots.txt
-yield links as they are found rather than dumping at the end
-parse other data apart from links (images, emails)
-get sitemap from robots.txt
-IP rotation
-traps and tarpits
+DATA
+- Yield links as they are found rather than dumping
+- Parse emails, images etc.
+- Log disallowed links
+- Scrape from backend not frontend
+
+ETHICS
+- 429 codes
+- Crawl Delay
+
+QUIET
+- IP rotation
+- Fingerprinting
+- Traps and Tarpits
+
+ROBOTS.TXT
+- Error: No robots.txt
+- Get Sitemap data
+- Review XML vulnerabilities
 '''
 
 test_url = str(input('Website to Analyse: '))
