@@ -1,17 +1,21 @@
 from urllib.parse import urljoin, urlsplit
-
 import urllib.robotparser
-
 from Daddy.LongLegsHTML import ParseHTML
+from Daddy.LongLegsSITEMAP import ParseSITEMAP
 
-class MapSite(object):
+class CrawlSite(object):
     def __init__(self, url, polite = True):
         self.url = url
         self.polite = polite
         self._base_url()
-        self._droid()
-        self.found_external_links, self.found_internal_links = set(), set()
-        self._recursive_crawl()
+        self._parse_robots()
+        print('Robots.txt Loaded')
+        self.link_map = set()
+        self._parse_sitemap()
+        print('Sitemap Loaded')
+        # self.found_external_links = set()
+        # self.found_internal_links = set()
+        # self._link_recursion()
         self._dumpdata()
 
 # defines base url of the website
@@ -20,29 +24,35 @@ class MapSite(object):
         self.base_url = url_parts.scheme + '://' + url_parts.netloc
 
 # defines robots.txt
-    def _droid(self):
+    def _parse_robots(self):
         self.droid = urllib.robotparser.RobotFileParser()
         self.droid.set_url(urljoin(self.base_url, '/robots.txt'))
         self.droid.read()
+    
+    def _parse_sitemap(self):
+        sitemaps = self.droid.site_maps()
+        for i in sitemaps:
+            data = ParseSITEMAP(i)
+            self.link_map.update(data.links)
 
 # crawls through all the internal links of a website
-    def _recursive_crawl(self, current_url = None):
-        if current_url == None:
-            current_url = self.url
-        if self.droid.can_fetch('*', current_url) or self.polite == False:
-            if current_url not in self.found_internal_links:
-                print(current_url)
-                self.found_internal_links.add(current_url)
-                page = ParseHTML(current_url, self.base_url)
+    def _link_recursion(self, url = None):
+        if url == None:
+            url = self.url
+        if self.droid.can_fetch('*', url) or self.polite == False:
+            if url not in self.found_internal_links:
+                print(url)
+                self.found_internal_links.add(url)
+                page = ParseHTML(url, self.base_url)
                 try:
                     new_links = page.internal_links
                     self.found_external_links.update(page.external_links)
                     for link in new_links:
-                        if link.startswith(current_url):
+                        if link.startswith(url):
                             next_url = link
                         else:
-                            next_url = urljoin(current_url, link)
-                        self._recursive_crawl(next_url)
+                            next_url = urljoin(url, link)
+                        self._link_recursion(next_url)
                 except:
                     pass 
 
@@ -50,12 +60,8 @@ class MapSite(object):
     def _dumpdata(self):
         with open('output.txt', 'w') as f:
             f.write(f'DATA OUTPUT for {self.url}\n\n')
-            f.write('INTERNAL LINKS:\n\n')
-            sorted_links = sorted(self.found_internal_links)
-            for link in sorted_links:
-                f.write(link + '\n')
-            f.write('\nEXTERNAL LINKS:\n\n')
-            sorted_links = sorted(self.found_external_links)
+            f.write('LINKS FOUND:\n\n')
+            sorted_links = sorted(self.link_map)
             for link in sorted_links:
                 f.write(link + '\n')
 
@@ -69,6 +75,7 @@ DATA
 ETHICS
 - 429 codes
 - Crawl Delay
+- user_agent
 
 QUIET
 - IP rotation
@@ -79,10 +86,12 @@ ROBOTS.TXT
 - Error: No robots.txt
 - Get Sitemap data
 - Review XML vulnerabilities
+- http vs https in sitemap extraction
+- deal wiht .xml.gz
 '''
 
 test_url = str(input('Website to Analyse: '))
 
-data = MapSite(test_url)
+data = CrawlSite(test_url)
 
 input('Press any key to continue')
