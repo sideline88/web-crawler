@@ -10,7 +10,7 @@ class ParseHTML(object):
         self.external_links = set()
         try:
             self._retrieve_html_data()
-            self._harvest_links()
+            self._mine_html()
         except requests.exceptions.RequestException as error:
             print(f'Error retrieving HTML from {self.url}: {error}')
 
@@ -24,14 +24,14 @@ class ParseHTML(object):
             raise Exception(f'Failed to retrieve HTML from {self.url}. {e}')
 
 # returns a set of internal and external links from the specified url
-    def _harvest_links(self):
+    def _mine_html(self):
         data = self.html_data.find_all('a', href = True)
-        data = set(link.get('href') for link in data if link.get('href'))
+        data = set(i.get('href') for i in data if i.get('href'))
         parse_base = urlparse(self.base_url)
-        for link in data:
-            parse_link = urljoin(self.base_url, link)
+        for i in data:
+            parse_link = urljoin(self.base_url, i)
             parse_link = urlparse(parse_link)
             if parse_base.netloc == parse_link.netloc:
-                self.internal_links.add(link)
+                self.internal_links.add(i)
             else:
-                self.external_links.add(link)
+                self.external_links.add(i)

@@ -1,4 +1,4 @@
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlparse, urlsplit
 import urllib.robotparser
 from Daddy.LongLegsHTML import ParseHTML
 from Daddy.LongLegsSITEMAP import ParseSITEMAP
@@ -12,11 +12,25 @@ class CrawlSite(object):
         print('Robots.txt Loaded')
         self.link_map = set()
         self._parse_sitemap()
-        print('Sitemap Loaded')
-        # self.found_external_links = set()
-        # self.found_internal_links = set()
-        # self._link_recursion()
+        self.found_internal_links = set()
+        self.found_external_links = set()
+        if self.map_link != None:
+            print('Sitemap Loaded')
+            print('Commencing iterative crawl')
+            parse_base = urlparse(self.base_url)
+            for i in self.map_link:
+                parse_link = urljoin(self.base_url, i)
+                parse_link = urlparse(parse_link)
+                if parse_base.netloc == parse_link.netloc:
+                    self.found_internal_links.add(i)
+                else:
+                    self.found_external_links.add(i)
+        else:
+            print('Nil sitemap found')
+            print('Commencing recursive crawl')
+            self._link_recursion()
         self._dumpdata()
+        input()
 
 # defines base url of the website
     def _base_url(self):
@@ -31,11 +45,15 @@ class CrawlSite(object):
     
     def _parse_sitemap(self):
         sitemaps = self.droid.site_maps()
-        for i in sitemaps:
-            data = ParseSITEMAP(i)
-            self.link_map.update(data.links)
+        if sitemaps == None:
+            self.map_link = None
+        else:
+            for i in sitemaps:
+                data = ParseSITEMAP(i)
+                self.map_link = set()
+                self.map_link.update(data.map_link)
 
-# crawls through all the internal links of a website
+# recursively crawls through all the internal links of a website
     def _link_recursion(self, url = None):
         if url == None:
             url = self.url
@@ -45,13 +63,13 @@ class CrawlSite(object):
                 self.found_internal_links.add(url)
                 page = ParseHTML(url, self.base_url)
                 try:
-                    new_links = page.internal_links
+                    data = page.internal_links
                     self.found_external_links.update(page.external_links)
-                    for link in new_links:
-                        if link.startswith(url):
-                            next_url = link
+                    for i in data:
+                        if i.startswith(url):
+                            next_url = i
                         else:
-                            next_url = urljoin(url, link)
+                            next_url = urljoin(url, i)
                         self._link_recursion(next_url)
                 except:
                     pass 
@@ -60,8 +78,12 @@ class CrawlSite(object):
     def _dumpdata(self):
         with open('output.txt', 'w') as f:
             f.write(f'DATA OUTPUT for {self.url}\n\n')
-            f.write('LINKS FOUND:\n\n')
-            sorted_links = sorted(self.link_map)
+            f.write('INTERNAL LINKS:\n\n')
+            sorted_links = sorted(self.found_internal_links)
+            for link in sorted_links:
+                f.write(link + '\n')
+            f.write('\nEXTERNAL LINKS:\n\n')
+            sorted_links = sorted(self.found_external_links)
             for link in sorted_links:
                 f.write(link + '\n')
 
@@ -71,6 +93,7 @@ DATA
 - Parse emails, images etc.
 - Log disallowed links
 - Scrape from backend not frontend
+- define linksorter as its own funcion (HTML and SITEMAP)
 
 ETHICS
 - 429 codes
